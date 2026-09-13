@@ -16,8 +16,8 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
-    ports:
-      - "127.0.0.1:${PORT:-3007}:3007"
+    networks:
+      - sso-backends
     volumes:
       - ./core/data:/app/core/data
     tmpfs:
@@ -38,3 +38,7 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+
+networks:
+  sso-backends:
+    external: true
