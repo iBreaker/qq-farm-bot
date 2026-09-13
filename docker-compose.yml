@@ -10,10 +10,18 @@ services:
     image: qq-farm-bot:20260913
     container_name: qq-farm-bot
     restart: always
+    user: "${UID:-1000}:${GID:-1000}"
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     ports:
       - "127.0.0.1:${PORT:-3007}:3007"
     volumes:
       - ./core/data:/app/core/data
+    tmpfs:
+      - /tmp:mode=1777
     environment:
       - TZ=${TZ:-Asia/Shanghai}
       - NODE_ENV=production
