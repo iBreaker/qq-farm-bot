@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 
-ARG NODE_IMAGE=node:20.19.6-alpine3.21
+ARG NODE_IMAGE=public.ecr.aws/docker/library/node:20.19.6-alpine3.21
 ARG PNPM_VERSION=10.30.2
 ARG NPM_REGISTRY=https://registry.npmjs.org/
 
