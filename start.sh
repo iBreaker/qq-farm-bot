@@ -8,6 +8,7 @@ INSTALL_STAMP="$SCRIPT_DIR/node_modules/.qq-farm-install-stamp"
 WEB_OUTPUT="$SCRIPT_DIR/web/dist/index.html"
 CORE_OUTPUT="$SCRIPT_DIR/core/client.js"
 CORE_RUNTIME_OUTPUT="$SCRIPT_DIR/core/dist/runtime/runtime-engine.js"
+TMUX_SESSION="qq-farm-bot-service"
 FORCE_BUILD=0
 
 cd "$SCRIPT_DIR"
@@ -56,11 +57,15 @@ is_our_process() {
 
     if [[ -e "/proc/$pid/cwd" ]]; then
         process_dir="$(readlink -f "/proc/$pid/cwd" 2>/dev/null || true)"
-        [[ -z "$process_dir" || "$process_dir" == "$SCRIPT_DIR" ]] || return 1
+    elif command -v lsof >/dev/null 2>&1; then
+        process_dir="$(lsof -a -p "$pid" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p' | head -n 1)"
     fi
+    [[ -z "$process_dir" || "$process_dir" == "$SCRIPT_DIR" ]] || return 1
 
     if [[ -r "/proc/$pid/cmdline" ]]; then
         command_line="$(tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null || true)"
+    else
+        command_line="$(ps -p "$pid" -o command= 2>/dev/null || true)"
     fi
     [[ "$command_line" == *"core/client.js"* || "$command_line" == *"core/dist"* ]]
 }
@@ -89,6 +94,16 @@ if [[ -f "$PID_FILE" ]]; then
         exit 0
     fi
     rm -f -- "$PID_FILE"
+fi
+
+if command -v tmux >/dev/null 2>&1 && tmux has-session -t "=$TMUX_SESSION" 2>/dev/null; then
+    tmux_pid="$(tmux display-message -p -t "=$TMUX_SESSION:0.0" '#{pane_pid}' 2>/dev/null || true)"
+    if [[ "$tmux_pid" =~ ^[0-9]+$ ]] && is_our_process "$tmux_pid"; then
+        printf '%s\n' "$tmux_pid" > "$PID_FILE"
+        echo "qq-farm-bot is already running with PID $tmux_pid in tmux session $TMUX_SESSION."
+        exit 0
+    fi
+    die "tmux session $TMUX_SESSION already exists but is not running this project"
 fi
 
 command -v node >/dev/null 2>&1 || die "node is required."
@@ -170,11 +185,15 @@ fi
 : > "$LOG_FILE"
 if command -v setsid >/dev/null 2>&1; then
     nohup setsid node "$SCRIPT_DIR/core/client.js" >> "$LOG_FILE" 2>&1 &
+    app_pid="$!"
+elif command -v tmux >/dev/null 2>&1; then
+    tmux new-session -d -s "$TMUX_SESSION" -c "$SCRIPT_DIR" \
+        "exec node '$SCRIPT_DIR/core/client.js' >> '$LOG_FILE' 2>&1"
+    app_pid="$(tmux display-message -p -t "=$TMUX_SESSION:0.0" '#{pane_pid}')"
 else
     nohup node "$SCRIPT_DIR/core/client.js" >> "$LOG_FILE" 2>&1 &
+    app_pid="$!"
 fi
-
-app_pid="$!"
 printf '%s\n' "$app_pid" > "$PID_FILE"
 
 sleep 1

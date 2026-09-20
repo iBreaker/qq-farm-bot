@@ -95,8 +95,9 @@ function startAdminServer(dataProvider: any): void {
     });
 
     const port: number = CONFIG.adminPort || 3007;
-    ctx.server = app.listen(port, '0.0.0.0', () => {
-        adminLogger.info('admin panel started', { url: `http://localhost:${port}`, port });
+    const host: string = process.env.ADMIN_HOST || '0.0.0.0';
+    ctx.server = app.listen(port, host, () => {
+        adminLogger.info('admin panel started', { url: `http://${host}:${port}`, host, port });
     });
 
     // Setup Socket.IO

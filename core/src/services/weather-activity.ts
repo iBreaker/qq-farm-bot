@@ -7,6 +7,7 @@ const { PlantPhase } = require('../config/config');
 const { getItemById, getItemImageById } = require('../config/gameConfig');
 const { sendMsgAsync, getUserState, networkEvents, GatewayError } = require('../utils/network');
 const { types } = require('../utils/proto');
+const { encodeUseRequest } = require('../utils/protobuf-wire');
 const { getServerTimeSec, toNum, sleep } = require('../utils/utils');
 const { enterFriendFarm, leaveFriendFarm } = require('./friend/api');
 const { getFriendsList, getFriendsListCacheOnly, isFriendCheckRunning } = require('./friend');
@@ -656,7 +657,7 @@ async function sendBottleUse(itemId: number, stack: any, target: any = null): Pr
         },
     };
     if (target) payload.target = target;
-    const body = Buffer.from(types.UseRequest.encode(types.UseRequest.create(payload)).finish());
+    const body = encodeUseRequest(payload, types.UseRequest, types.UseTarget);
     const { body: replyBody } = await sendMsgAsync('gamepb.itempb.ItemService', 'Use', body);
     return types.UseReply.decode(replyBody);
 }

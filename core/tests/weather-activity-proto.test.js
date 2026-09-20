@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 const test = require('node:test');
 const protobuf = require('protobufjs');
+const { encodeUseRequest } = require('../dist/utils/protobuf-wire');
 
 async function loadRoot() {
     const root = new protobuf.Root();
@@ -30,10 +31,11 @@ test('weather research request reproduces the capture-verified field 140 selecto
 test('weather bottle use target preserves the host and explicit zero use config', async () => {
     const root = await loadRoot();
     const Request = root.lookupType('gamepb.itempb.UseRequest');
-    const body = Buffer.from(Request.encode(Request.create({
+    const Target = root.lookupType('gamepb.itempb.UseTarget');
+    const body = encodeUseRequest({
         item: { id: 5002, count: 1, uid: 77 },
         target: { host_gid: 123456, use_config_id: 0 },
-    })).finish());
+    }, Request, Target);
     const decoded = Request.decode(body);
 
     assert.equal(Number(decoded.item.id), 5002);
@@ -45,14 +47,15 @@ test('weather bottle use target preserves the host and explicit zero use config'
 test('frog and cloud bottle requests match the successful captures', async () => {
     const root = await loadRoot();
     const Request = root.lookupType('gamepb.itempb.UseRequest');
-    const frogBody = Buffer.from(Request.encode(Request.create({
+    const Target = root.lookupType('gamepb.itempb.UseTarget');
+    const frogBody = encodeUseRequest({
         item: { id: 5005, count: 1, uid: 13859 },
         target: { host_gid: '1001851355', use_config_id: 0 },
-    })).finish());
-    const cloudBody = Buffer.from(Request.encode(Request.create({
+    }, Request, Target);
+    const cloudBody = encodeUseRequest({
         item: { id: 5006, count: 1, uid: 13865 },
         target: { host_gid: '1027729951', land_ids: [11] },
-    })).finish());
+    }, Request, Target);
 
     assert.equal(frogBody.toString('hex'), '0a08088d27100130a36c120808db93dcdd031800');
     assert.equal(cloudBody.toString('hex'), '0a08088e27100130a96c1209089fd487ea0312010b');

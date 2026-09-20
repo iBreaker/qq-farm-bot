@@ -8,6 +8,7 @@ const { getItemById, getItemImageById } = require('../config/gameConfig');
 const { isSellConditionSatisfied } = require('../config/sell-conditions');
 const { sendMsgAsync, getUserState, GatewayError } = require('../utils/network');
 const { types } = require('../utils/proto');
+const { encodeUseRequest } = require('../utils/protobuf-wire');
 const { toNum } = require('../utils/utils');
 const { getSellConditionContext } = require('./activity-windows');
 const { getAllLands } = require('./farm/api');
@@ -322,7 +323,7 @@ function currentStack(stacks: any[]): any | null {
 }
 
 async function sendTargetedItemUse(itemId: number, stack: any, friendGid: string, landId: string): Promise<any> {
-    const request = types.UseRequest.create({
+    const request = {
         item: {
             id: itemId,
             count: 1,
@@ -333,18 +334,18 @@ async function sendTargetedItemUse(itemId: number, stack: any, friendGid: string
             land_ids: [landId],
             use_config_id: 0,
         },
-    });
-    const body = Buffer.from(types.UseRequest.encode(request).finish());
+    };
+    const body = encodeUseRequest(request, types.UseRequest, types.UseTarget);
     const { body: replyBody } = await sendMsgAsync('gamepb.itempb.ItemService', 'Use', body);
     return types.UseReply.decode(replyBody);
 }
 
 async function sendFriendFarmItemUse(itemId: number, stack: any, friendGid: string): Promise<any> {
-    const request = types.UseRequest.create({
+    const request = {
         item: { id: itemId, count: 1, uid: stack.raw.uid },
         target: { host_gid: friendGid, use_config_id: 0 },
-    });
-    const body = Buffer.from(types.UseRequest.encode(request).finish());
+    };
+    const body = encodeUseRequest(request, types.UseRequest, types.UseTarget);
     const { body: replyBody } = await sendMsgAsync('gamepb.itempb.ItemService', 'Use', body);
     return types.UseReply.decode(replyBody);
 }

@@ -81,13 +81,18 @@ function encodeOwnFarmingRequest(
             .map((value: number | string) => toNum(value))
             .filter((value: number) => value > 0),
     )];
-    return types.FarmingRequest.encode(types.FarmingRequest.create({
+    const writer = types.FarmingRequest.encode(types.FarmingRequest.create({
         land_ids: landIds,
         host_gid: toLong(hostGid),
-        field_3: 0,
-        field_4: 0,
-        social_event_item_ids: normalizedSocialEventItemIds.map((value: number) => toLong(value)),
-    })).finish();
+    }));
+    writer.uint32(24).int32(0);
+    writer.uint32(32).int32(0);
+    if (normalizedSocialEventItemIds.length > 0) {
+        const packedWriter = writer.uint32(42).fork();
+        for (const value of normalizedSocialEventItemIds) packedWriter.int64(toLong(value));
+        packedWriter.ldelim();
+    }
+    return writer.finish();
 }
 
 // 普通肥料 ID
