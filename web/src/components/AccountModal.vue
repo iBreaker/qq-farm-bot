@@ -142,8 +142,6 @@ async function submitPendingQrAccount(platform: 'wx' | 'qq') {
   }
 
   const payload: any = { name, code, platform, loginType: 'manual' }
-  if (props.editData)
-    payload.id = props.editData.id
   const saved = await addAccount(payload, !!props.editData)
   if (!saved && props.show && activeLoginTab.value === `${platform}_qr`) {
     if (platform === 'wx')
@@ -212,32 +210,12 @@ async function submitManual() {
     form.code = code
   }
 
-  let payload: any = {}
-  if (props.editData) {
-    const onlyNameChanged = form.name !== props.editData.name
-      && form.code === (props.editData.code || '')
-      && form.platform === (props.editData.platform || 'qq')
-
-    if (onlyNameChanged) {
-      payload = { id: props.editData.id, name: form.name }
-    }
-    else {
-      payload = {
-        id: props.editData.id,
-        name: form.name,
-        code,
-        platform: form.platform,
-        loginType: 'manual',
-      }
-    }
-  }
-  else {
-    payload = {
-      name: form.name,
-      code,
-      platform: form.platform,
-      loginType: 'manual',
-    }
+  // 不传 id，走后端 isRemarkRelogin 路径（名字匹配），对已停止账号也会 restartAccount
+  const payload: any = {
+    name: form.name,
+    code,
+    platform: props.editData ? (props.editData.platform || 'qq') : form.platform,
+    loginType: 'manual',
   }
 
   await addAccount(payload, !!props.editData)
