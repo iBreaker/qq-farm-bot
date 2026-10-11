@@ -14,7 +14,12 @@ const { recordOperation } = require('../stats');
 const { getBagSeeds } = require('../warehouse');
 const { getCareerInfoOrNull } = require('../career');
 const { getAllLands, buyGoods, removePlant, fertilizeOne } = require('./api');
-const { selectFutureLayoutReservation } = require('./layout-reservation');
+const {
+    selectFutureLayoutReservation,
+    getRegisteredLayout,
+    registerLayout,
+    clearRegisteredLayout,
+} = require('./layout-reservation');
 const {
     ALL_FERTILIZER_LAND_TYPES,
     buildLandDetail,
@@ -338,7 +343,9 @@ async function plantFromBagSeeds(landsToPlant: any[], landTypeById?: Map<number,
     const plantedLandIds: number[] = [];
     const usedSeedLogs: string[] = [];
     const deferredLandIds = new Set<number>();
-    let futureLayoutReserved = false;
+    // 每个种子每轮最多预留一组布局；各种子预留的整组目标布局互不重叠。
+    const reservedSeedIds = new Set<number>();
+    const claimedLayoutLandIds = new Set<number>();
 
     for (const seed of plantingOrder) {
         if (remainingLandIds.length === 0 || !fallbackAllowed) break;
@@ -365,16 +372,22 @@ async function plantFromBagSeeds(landsToPlant: any[], landTypeById?: Map<number,
                 ? filterLandIdsByTypes(allUnlockedLandIds, landTypeById, seed.landTypes)
                 : allUnlockedLandIds;
             const reservation = multiLandReservationEnabled
-                && !futureLayoutReserved
+                && !reservedSeedIds.has(toNum(seed.seedId))
                 && plantSize > 1
                 && explicitPrioritySeedIds.has(toNum(seed.seedId))
-                ? selectFutureLayoutReservation(allowedLandIds, allEligibleLandIds, plantSize)
+                ? selectFutureLayoutReservation(allowedLandIds, allEligibleLandIds, plantSize, {
+                    registered: getRegisteredLayout(seed.seedId),
+                    excludeLandIds: claimedLayoutLandIds,
+                })
                 : null;
+            if (!reservation) clearRegisteredLayout(seed.seedId);
             if (reservation) {
+                registerLayout(seed.seedId, reservation.layout);
+                reservation.layout.landIds.forEach((id: number) => claimedLayoutLandIds.add(toNum(id)));
+                reservedSeedIds.add(toNum(seed.seedId));
                 reservation.reservedLandIds.forEach((id: number) => deferredLandIds.add(id));
                 const reserved = new Set(reservation.reservedLandIds);
                 remainingLandIds = remainingLandIds.filter(id => !reserved.has(id));
-                futureLayoutReserved = true;
                 log('种植', `背包种子 ${seed.name} ${reason}，已预留空地 ${reservation.reservedLandIds.join(',')}，等待布局 ${reservation.layout.landIds.join(',')}`, {
                     module: 'farm', event: '种植种子', result: 'reserve_future_layout', strategy: 'bag_priority',
                     seedId: seed.seedId, plantSize, emptyCount: remainingLandIds.length + reservation.reservedLandIds.length,
@@ -392,6 +405,7 @@ async function plantFromBagSeeds(landsToPlant: any[], landTypeById?: Map<number,
             continue;
         }
 
+        clearRegisteredLayout(seed.seedId);
         const result = await plantSeeds(seed.seedId, layouts.map(layout => layout.anchorLandId), {
             maxPlantCount: layouts.length,
             layouts,
