@@ -64,9 +64,9 @@ const form = reactive({
 })
 
 // 添加账号
-async function addAccount(data: any, skipNameCheck = false) {
+async function addAccount(data: any, isRelogin = false) {
   const name = String(data?.name || '').trim()
-  if (!skipNameCheck && !name) {
+  if (!isRelogin && !name) {
     errorMessage.value = '请输入账号备注'
     return false
   }
@@ -210,7 +210,6 @@ async function submitManual() {
     form.code = code
   }
 
-  // 不传 id，走后端 isRemarkRelogin 路径（名字匹配），对已停止账号也会 restartAccount
   const payload: any = {
     name: form.name,
     code,
